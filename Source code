@@ -1,0 +1,96 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.text.DecimalFormat;
+import org.json.*;
+
+public class Main {
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            CurrencyConverter converter = new CurrencyConverter();
+            converter.setTitle("Currency Converter");
+            converter.setSize(400, 200);
+            converter.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            converter.setLocationRelativeTo(null);
+            converter.setVisible(true);
+        });
+    }
+}
+
+class CurrencyConverter extends JFrame {
+    private JTextField amountField;
+    private JComboBox<String> fromCurrencyBox;
+    private JComboBox<String> toCurrencyBox;
+    private JLabel convertedAmountLabel;
+
+    private static final String API_KEY = "0653e8e55e96504db27b86d6";
+    private static final String BASE_URL = "https://v6.exchangerate-api.com/v6/" + API_KEY + "/latest/";
+
+    public CurrencyConverter() {
+        String[] currencies = {"USD", "EUR", "GBP", "JPY", "AUD", "INR"};
+        fromCurrencyBox = new JComboBox<>(currencies);
+        toCurrencyBox = new JComboBox<>(currencies);
+        amountField = new JTextField(10);
+        convertedAmountLabel = new JLabel("Converted Amount:");
+
+        convertedAmountLabel.setForeground(Color.BLUE);
+
+        add(new JLabel("Amount:"));
+        add(amountField);
+        add(new JLabel("From:"));
+        add(fromCurrencyBox);
+        add(new JLabel("To:"));
+        add(toCurrencyBox);
+        add(new JButton(new AbstractAction("Convert") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String fromCurrency = (String) fromCurrencyBox.getSelectedItem();
+                String toCurrency = (String) toCurrencyBox.getSelectedItem();
+                double amount = Double.parseDouble(amountField.getText());
+
+
+                try {
+                    String urlString = constructApiUrl(fromCurrency, toCurrency, amount);
+                    URL url = new URL(urlString);
+                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                    connection.setRequestMethod("GET");
+                    connection.connect();
+
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                    StringBuilder response = new StringBuilder();
+                    String line;
+
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+
+                    JSONObject jsonResponse = new JSONObject(response.toString());
+                    double exchangeRate = jsonResponse.getJSONObject("conversion_rates").getDouble(toCurrency);
+                    double convertedAmount = amount * exchangeRate;
+                    DecimalFormat decimalFormat = new DecimalFormat("#.##");
+                    convertedAmountLabel.setText("Converted Amount: " + decimalFormat.format(convertedAmount));
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }));
+        add(convertedAmountLabel);
+
+        setLayout(new FlowLayout());
+        setTitle("Currency Converter");
+        setSize(400, 200);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setVisible(true);
+    }
+
+    private static String constructApiUrl(String fromCurrency, String toCurrency, double amount) {
+        return BASE_URL + fromCurrency + "?amount=" + amount + "&symbols=" + toCurrency;
+    }
+}
